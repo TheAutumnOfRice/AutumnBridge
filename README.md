@@ -4,6 +4,9 @@ Based on scipy.io. All the transmission based on hard disk IO and it is not as f
 User should install matlab and its python engine first.
 
 ## Why use AutumnBridge
+* AutumnBridge supports numpy type data, so it is very convenient to transfer data between python and Matlab.
+* AutumnBridge has easy one-line method `_E`,`_R`,`_A`,`_S` to simplify usage.
+* Based on scipy.io, AutumnBridge transfer data using `.mat` files so that it can handle almost every type of data and the transmission speed is much faster than the original API.
 
 ## Install
 1. Check your Matlab version and python version. Lower version Matlab may not be compatible with high-version python.
