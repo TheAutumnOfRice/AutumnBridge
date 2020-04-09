@@ -11,11 +11,11 @@ def RandomBridge():
     return 'B' + str(np.random.randint(1000000, 9999999))
 
 
-def _MakeArgs(num: int, sym: str,br:str=''):
+def _MakeArgs(num: int, sym: str, br: str = ''):
     """
     Input Num, Return Args Name list like [a1,a2,...,an]
     """
-    return ['%s%s%d' % (sym,br,i) for i in range(num)]
+    return ['%s%s%d' % (sym, br, i) for i in range(num)]
 
 
 def _Del(fname: str):
@@ -23,8 +23,13 @@ def _Del(fname: str):
         remove(fname)
 
 
+class MatlabError(Exception):
+    def __init__(self, err='Matlab Error'):
+        Exception.__init__(self, err)
+
+
 class AutumnBridge:
-    def __init__(self, connect=False, desktop=False, background=False, MoreOpt=None,ID=None):
+    def __init__(self, connect=False, desktop=False, background=False, MoreOpt=None, ID=None):
         """
         Initialize the bridge between python and matlab.
         :param connect: bool
@@ -44,7 +49,7 @@ class AutumnBridge:
             If None, the ID will be id(self).
         """
         opt = '-desktop' if desktop else '-nodesktop'
-        self._floatformat=np.float64
+        self._floatformat = np.float64
         self._connect = connect
         self._ID = ID if ID is not None else id(self)
         if MoreOpt is not None:
@@ -67,22 +72,27 @@ class AutumnBridge:
         '''
         return self.eng.__getattr__(item)
     """
-    def E(self, command: str, nargout=0):
+
+    def E(self, command: str, nargout=0, raise_error=False):
         """
         A fast eval method.
         :param command: str
             matlab command.
         :param nargout: int
             Number of output arguments.
+        :param raise_error: bool
+            If False, the function will not raise an error, and give plain text warning.
+            If True, the function will raise an error, without more text warning.
         :return:
             Output arguments
         """
         try:
             return self.eng.eval(command, nargout=nargout)
         except Exception as e:
-            raise e
+            if raise_error:
+                raise MatlabError(str(e))
 
-    def R(self, command: str, nargout=1):
+    def R(self, command: str, nargout=1, raise_error=False):
         """
         A fast eval method, but return with scipy.io.
         It can return big matrix.
@@ -90,25 +100,37 @@ class AutumnBridge:
             matlab command.
         :param nargout: int
             Number of output arguments.
+        :param raise_error: bool
+            If False, the function will not raise an error, and give plain text warning.
+            If True, the function will raise an error, without more text warning.
         :return:
             Output arguments
         """
         BR = RandomBridge()
-        ArgOuts = _MakeArgs(nargout, 'Out',BR)
+        ArgOuts = _MakeArgs(nargout, 'Out', BR)
         fname = self._BridgeName(BR, '_out.mat')
         try:
-            self.E('[%s]=%s;' % (','.join(ArgOuts), command))
-            self.E('save %s %s' % (fname, ' '.join(ArgOuts)))
-            self.E('clear %s' % ' '.join(ArgOuts))
+            self.E('[%s]=%s;' % (','.join(ArgOuts), command), raise_error=True)
+            if nargout > 0:
+                self.E('save %s %s' % (fname, ' '.join(ArgOuts)), raise_error=True)
+                self.E('clear %s' % ' '.join(ArgOuts), raise_error=True)
+
+        except MatlabError as e:
+            if raise_error:
+                raise e
+            else:
+                return tuple([None for _ in range(nargout)]) if nargout >= 2 else None
+        except Exception as e:
+            raise e
+        else:
             P = self._FromMat(BR, nargout)
-            self._DelInOut(BR)
-            if len(P)==1:
+            if len(P) == 1:
                 return P[0]
             else:
                 return P
-        except Exception as e:
+        finally:
             self._DelInOut(BR)
-            raise e
+
 
     def __getitem__(self, item: str):
         """
@@ -120,13 +142,19 @@ class AutumnBridge:
             # item exist.
             RB = RandomBridge()
             fname = self._BridgeName(RB, '_out.mat')
-            self.E('save %s %s' % (fname, item))
-            P = self._FromMat(RB, 1,[item])
-            self._DelInOut(RB)
-            if len(P)==1:
-                return P[0]
+            try:
+                self.E('save %s %s' % (fname, item), raise_error=True)
+            except MatlabError as e:
+                raise MatlabError('Error occured when saving ' + item + ': ' + str(e))
             else:
-                return P
+                P = self._FromMat(RB, 1, [item])
+                if len(P) == 1:
+                    return P[0]
+                else:
+                    return P
+            finally:
+                self._DelInOut(RB)
+
         else:
             raise KeyError(item)
 
@@ -139,10 +167,14 @@ class AutumnBridge:
             any value to set to variable.
         """
         RB = RandomBridge()
-        self._ToMat(RB, value, argname=[item])
-        fname = self._BridgeName(RB, '_in.mat')
-        self.E('load %s' % fname)
-        self._DelInOut(RB)
+        try:
+            self._ToMat(RB, value, argname=[item])
+            fname = self._BridgeName(RB, '_in.mat')
+            self.E('load %s' % fname, raise_error=True)
+        except MatlabError as e:
+            raise e
+        finally:
+            self._DelInOut(RB)
 
     def __contains__(self, item):
         """
@@ -152,38 +184,59 @@ class AutumnBridge:
         :return: bool
             True if workspace contains item
         """
-        return self.E("exist('%s')" % item, 1) == 1
+        P = self.E("exist('%s')" % item, 1, raise_error=True) == 1
+        return P
+
     def __iter__(self):
         A = self.A()
         for i in A:
             yield i
 
-    def S(self, item):
+    def S(self, item, raise_error=False):
         """
         Show the shape / size of an item
         :param item: str
             Variable
+        :param raise_error: bool
+            If False, the function will not raise an error, and give plain text warning.
+            If True, the function will raise an error, without more text warning.
         :return: tuple
             shape or size
         """
         if not self.__contains__(item):
-            raise KeyError(item)
-        return tuple(self.R('size(%s)' % item))
-    def A(self):
+            if raise_error:
+                raise KeyError(item)
+            else:
+                print('ERROR: ', item, ' not exist.')
+        T = tuple(self.R('size(%s)' % item, raise_error=raise_error))
+        return T
+
+    def A(self, raise_error=False):
         """
         Get all the variables' names.
+        :param raise_error: bool
+            If False, the function will not raise an error, and give plain text warning.
+            If True, the function will raise an error, without more text warning.
         :return:
         names of the variables
         """
         try:
-            return self.R('whos()')['name']
+            P = self.R('whos()', raise_error=True)
+            return self.R('whos()', raise_error=True)['name']
         except IndexError:
             return np.array([])
+        except MatlabError as e:
+            if raise_error:
+                raise e
+            else:
+                return np.array([])
+
     def show(self):
         """
         Equals to E('whos')
         """
         self.E('whos')
+
     def _BridgeName(self, bridge: str, suf: str):
         """
         Return The Name Of the Bridge File
@@ -206,8 +259,8 @@ class AutumnBridge:
         funname = self._BridgeName(bridge, '')
         inmatname = self._BridgeName(bridge, '_in.mat')
         outmatname = self._BridgeName(bridge, '_out.mat')
-        OutArgs = _MakeArgs(nargout, 'Out',bridge)
-        InArgs = _MakeArgs(nargin, 'In',bridge)
+        OutArgs = _MakeArgs(nargout, 'Out', bridge)
+        InArgs = _MakeArgs(nargin, 'In', bridge)
         with open(fname, 'w') as f:
             P = []
             P += ['function []=%s()\n' % funname]
@@ -236,27 +289,26 @@ class AutumnBridge:
     def _ToMat(self, bridge: str, *argin, argname=None):
         inmatname = self._BridgeName(bridge, '_in.mat')
         if argname is None:
-            InArgs = _MakeArgs(len(argin), 'In',bridge)
+            InArgs = _MakeArgs(len(argin), 'In', bridge)
         else:
             InArgs = argname
-        argin=list(argin)
-        for i,j in enumerate(argin):
+        argin = list(argin)
+        for i, j in enumerate(argin):
             if type(argin[i]) is int:
-                argin[i]=float(argin[i])
-            if type(j) in [list,tuple]:
-                argin[i]=np.array(j)
+                argin[i] = float(argin[i])
+            if type(j) in [list, tuple]:
+                argin[i] = np.array(j)
             if type(argin[i]) is np.ndarray and 'int' in argin[i].dtype.name:
-                argin[i]=argin[i].astype(self._floatformat)
-
+                argin[i] = argin[i].astype(self._floatformat)
         savemat(inmatname, dict(zip(InArgs, argin)))
 
-    def _FromMat(self, bridge: str, nargout: int,argname=None):
+    def _FromMat(self, bridge: str, nargout: int, argname=None):
         outmatname = self._BridgeName(bridge, '_out.mat')
         if argname is None:
-            OutArgs = _MakeArgs(nargout, 'Out',bridge)
+            OutArgs = _MakeArgs(nargout, 'Out', bridge)
         else:
-            OutArgs=argname
-        D = loadmat(outmatname,squeeze_me=True,struct_as_record=True)
+            OutArgs = argname
+        D = loadmat(outmatname, squeeze_me=True, struct_as_record=True, chars_as_strings=True)
         L = []
         for i in OutArgs:
             L = L + [D[i]]
@@ -306,16 +358,14 @@ class AutumnBridge:
             self._ToMat(bridge, *argin)
             self.eng.__getattr__(funname)(nargout=0)
             T = self._FromMat(bridge, nargout)
-            self._DelInOut(bridge)
-            if delete:
-                self.DelBridge(bridge)
         except Exception as e:
+            raise e
+        else:
+            if len(T) == 1:
+                return T[0]
+            else:
+                return T
+        finally:
             if delete:
                 self.DelBridge(bridge)
             self._DelInOut(bridge)
-            raise e
-        if len(T) == 1:
-            return T[0]
-        else:
-            return T
-
