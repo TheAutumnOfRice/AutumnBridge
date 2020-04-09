@@ -8,6 +8,6 @@ setup(
     license='',
     author='TheRiceOfAutumn',
     author_email='nuaazhouyi@nuaa.edu.cn',
-    description='A fast and easy way to transfer numpy from python to matlab function', install_requires=['scipy',
+    description='A fast, convenient bridge between python and matlab which support numpy.', install_requires=['scipy',
                                                                                                           'numpy']
 )
