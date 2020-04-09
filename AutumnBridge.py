@@ -7,7 +7,7 @@ from os.path import exists
 from os import getcwd
 
 
-def _RandomBridge():
+def RandomBridge():
     return 'B' + str(np.random.randint(1000000, 9999999))
 
 
@@ -24,7 +24,7 @@ def _Del(fname: str):
 
 
 class AutumnBridge:
-    def __init__(self, connect=False, desktop=False, background=False, MoreOpt=None,ID=None,floatformat=np.float64):
+    def __init__(self, connect=False, desktop=False, background=False, MoreOpt=None,ID=None):
         """
         Initialize the bridge between python and matlab.
         :param connect: bool
@@ -42,33 +42,32 @@ class AutumnBridge:
         :param ID: int
             The ID of the bridge.
             If None, the ID will be id(self).
-        :param floatformat: numpy.dtype
-            All the numerical parameters will be transfered in this format.
         """
         opt = '-desktop' if desktop else '-nodesktop'
-        self._floatformat=floatformat
+        self._floatformat=np.float64
         self._connect = connect
         self._ID = ID if ID is not None else id(self)
         if MoreOpt is not None:
             opt = opt + ' ' + MoreOpt
-        self._eng = connect_matlab() if connect \
+        self.eng = connect_matlab() if connect \
             else start_matlab(opt, background=background)
-        self._eng.cd(getcwd())
+        self.eng.cd(getcwd())
 
     def __del__(self):
         """
         Quit Matlab.
         """
         if self._connect is False:
-            self._eng.quit()
+            self.eng.quit()
 
+    """ Dispatched
     def __getattr__(self, item):
-        """
+        '''
         The same function as eng.__getattr__
-        """
-        return self._eng.__getattr__(item)
-
-    def _E(self, command: str, nargout=0):
+        '''
+        return self.eng.__getattr__(item)
+    """
+    def E(self, command: str, nargout=0):
         """
         A fast eval method.
         :param command: str
@@ -78,9 +77,12 @@ class AutumnBridge:
         :return:
             Output arguments
         """
-        return self._eng.eval(command, nargout=nargout)
+        try:
+            return self.eng.eval(command, nargout=nargout)
+        except Exception as e:
+            raise e
 
-    def _R(self, command: str, nargout=1):
+    def R(self, command: str, nargout=1):
         """
         A fast eval method, but return with scipy.io.
         It can return big matrix.
@@ -91,18 +93,22 @@ class AutumnBridge:
         :return:
             Output arguments
         """
-        BR = _RandomBridge()
+        BR = RandomBridge()
         ArgOuts = _MakeArgs(nargout, 'Out',BR)
         fname = self._BridgeName(BR, '_out.mat')
-        self._E('[%s]=%s;' % (','.join(ArgOuts), command))
-        self._E('save %s %s' % (fname, ' '.join(ArgOuts)))
-        self._E('clear %s'%' '.join(ArgOuts))
-        P = self._FromMat(BR, nargout)
-        self._DelInOut(BR)
-        if len(P)==1:
-            return P[0]
-        else:
-            return P
+        try:
+            self.E('[%s]=%s;' % (','.join(ArgOuts), command))
+            self.E('save %s %s' % (fname, ' '.join(ArgOuts)))
+            self.E('clear %s' % ' '.join(ArgOuts))
+            P = self._FromMat(BR, nargout)
+            self._DelInOut(BR)
+            if len(P)==1:
+                return P[0]
+            else:
+                return P
+        except Exception as e:
+            self._DelInOut(BR)
+            raise e
 
     def __getitem__(self, item: str):
         """
@@ -112,9 +118,9 @@ class AutumnBridge:
         """
         if self.__contains__(item):
             # item exist.
-            RB = _RandomBridge()
+            RB = RandomBridge()
             fname = self._BridgeName(RB, '_out.mat')
-            self._E('save %s %s' % (fname, item))
+            self.E('save %s %s' % (fname, item))
             P = self._FromMat(RB, 1,[item])
             self._DelInOut(RB)
             if len(P)==1:
@@ -132,10 +138,10 @@ class AutumnBridge:
         :param value:
             any value to set to variable.
         """
-        RB = _RandomBridge()
+        RB = RandomBridge()
         self._ToMat(RB, value, argname=[item])
         fname = self._BridgeName(RB, '_in.mat')
-        self._E('load %s' % fname)
+        self.E('load %s' % fname)
         self._DelInOut(RB)
 
     def __contains__(self, item):
@@ -146,13 +152,13 @@ class AutumnBridge:
         :return: bool
             True if workspace contains item
         """
-        return self._E("exist('%s')" % item,1)==1
+        return self.E("exist('%s')" % item, 1) == 1
     def __iter__(self):
-        A = self._A()
+        A = self.A()
         for i in A:
             yield i
 
-    def _S(self,item):
+    def S(self, item):
         """
         Show the shape / size of an item
         :param item: str
@@ -162,43 +168,46 @@ class AutumnBridge:
         """
         if not self.__contains__(item):
             raise KeyError(item)
-        return tuple(self._R('size(%s)'%item))
-    def _A(self):
+        return tuple(self.R('size(%s)' % item))
+    def A(self):
         """
         Get all the variables' names.
         :return:
         names of the variables
         """
-        P=self._R('whos()')
-        if P is None:
+        try:
+            return self.R('whos()')['name']
+        except IndexError:
             return np.array([])
-        else:
-            return self._R('whos()')['name']
-    def _Show(self):
+    def show(self):
         """
-        Equals to _E('whos')
+        Equals to E('whos')
         """
-        self._E('whos')
+        self.E('whos')
     def _BridgeName(self, bridge: str, suf: str):
         """
         Return The Name Of the Bridge File
         """
-        return "PyMatBridge_%s_%s%s" % (str(self._ID), str(bridge), suf)
+        return "AutumnBridge_%s_%s%s" % (str(self._ID), str(bridge), suf)
 
-    def _BuildBridge(self, func: str, bridge: str, args: tuple, outs: int):
+    def BuildBridge(self, func: str, bridge: str, nargin: int, nargout: int):
         """
         Build .m Bridge.
-        :param func: Name of the function that will be wrapped.
-        :param bridge: Name of the bridge
-        :param args: Input arguments
-        :param outs: nargout
+        :param func: str
+            Name of the function that will be wrapped.
+        :param bridge: str
+            Name of the bridge
+        :param nargin: int
+            Number of input arguments
+        :param nargout: int
+            Number of output arguments
         """
         fname = self._BridgeName(bridge, '.m')
         funname = self._BridgeName(bridge, '')
         inmatname = self._BridgeName(bridge, '_in.mat')
         outmatname = self._BridgeName(bridge, '_out.mat')
-        OutArgs = _MakeArgs(outs, 'Out',bridge)
-        InArgs = _MakeArgs(len(args), 'In',bridge)
+        OutArgs = _MakeArgs(nargout, 'Out',bridge)
+        InArgs = _MakeArgs(nargin, 'In',bridge)
         with open(fname, 'w') as f:
             P = []
             P += ['function []=%s()\n' % funname]
@@ -208,7 +217,13 @@ class AutumnBridge:
             P += ['end\n']
             f.writelines(P)
 
-    def _DelBridge(self, bridge: str):
+    def DelBridge(self, bridge: str):
+        """
+        Delete Bridge file.
+        :param bridge: str
+            The name of bridge
+        :return:
+        """
         fname = self._BridgeName(bridge, '.m')
         _Del(fname)
 
@@ -247,7 +262,7 @@ class AutumnBridge:
             L = L + [D[i]]
         return tuple(L)
 
-    def __call__(self, func: str, *argin, nargout=1, bridge: Optional[str] = None, NewBridge='auto', delete=True):
+    def __call__(self, func: str, *argin, nargout=1, bridge: Optional[str] = None, NewBridge='auto', delete='auto'):
         """
         Wrap a matlab function with Bridge, and transfer data/parameters much more faster
         using scipy.io.
@@ -266,13 +281,19 @@ class AutumnBridge:
                 you have ever created one with certain ID and Bridge name.
             If 'auto', the bridge .m file will be create if there doesn't
                 exist one.
-        :param delete: bool
+        :param delete: bool or 'auto'
             If True, the bridge .m file will be delete after function calling.
+            If False, the bridge .m file will not be delete.
+            If 'auto', delete=True if bridge is not None.
         :return:
             Tuple(arg0,arg1,...,argn), n=nargout
         """
+        if delete == 'auto':
+            delete = bridge is not None
+        else:
+            assert type(delete) is bool
         if bridge is None:
-            bridge = _RandomBridge()
+            bridge = RandomBridge()
         fname = self._BridgeName(bridge, '.m')
         funname = self._BridgeName(bridge, '')
         if NewBridge == 'auto':
@@ -280,21 +301,19 @@ class AutumnBridge:
         else:
             assert type(NewBridge) is bool
         if NewBridge:
-            self._BuildBridge(func, bridge, argin, nargout)
-        eflag = 1
+            self.BuildBridge(func, bridge, len(argin), nargout)
         try:
             self._ToMat(bridge, *argin)
-            self._eng.__getattr__(funname)(nargout=0)
-            eflag = 0
-        except Exception as e:
-            print('Error: ', e)
-        if eflag == 0:
+            self.eng.__getattr__(funname)(nargout=0)
             T = self._FromMat(bridge, nargout)
-        else:
-            T = tuple()
-        self._DelInOut(bridge)
-        if delete:
-            self._DelBridge(bridge)
+            self._DelInOut(bridge)
+            if delete:
+                self.DelBridge(bridge)
+        except Exception as e:
+            if delete:
+                self.DelBridge(bridge)
+            self._DelInOut(bridge)
+            raise e
         if len(T) == 1:
             return T[0]
         else:

@@ -5,12 +5,12 @@ User should install matlab and its python engine first.
 
 ## Why use AutumnBridge
 * AutumnBridge supports numpy type data, so it is very convenient to transfer data between python and Matlab.
-* AutumnBridge has easy one-line method `_E`,`_R`,`_A`,`_S` to simplify usage.
+* AutumnBridge has easy one-word method `E`,`R`,`A`,`S` to simplify usage.
 * Based on scipy.io, AutumnBridge transfer data using `.mat` files so that it can handle almost every type of data and the transmission speed is much faster than the original API.
 * AutumnBridge can wrap any Matlab function without change the program. It will create a 'Bridge' .m file that covers all the preparation works like `load` and `save`.
 
 ## Install
-1. Check your Matlab version and python version. Lower version Matlab may not be compatible with high-version python.
+1. Check your Matlab version and python version. Lower version Matlab may not be compatible with high-version python. See: https://ww2.mathworks.cn/help/matlab/matlab_external/system-and-configuration-requirements.html
 2. Install Matlab Engine for python. Check the website:https://ww2.mathworks.cn/help/matlab/matlab_external/install-the-matlab-engine-for-python.html?lang=en 
 3. Download this project.
 4. Use `python setup.py install` to install this project.
@@ -26,10 +26,10 @@ AB = AutumnBridge(connect=True)
 from AutumnBridge import AutumnBridge
 AB = AutumnBridge(connect=True)
 # Execute one matlab command without return values
-AB._E('x=ones(5,5);')
-AB._E('y=magic(5);')
+AB.E('x=ones(5,5);')
+AB.E('y=magic(5);')
 # Execute one matlab command with return values 
-S=AB._R('x+y')
+S=AB.R('x+y')
 #S=
 #array([[18, 25,  2,  9, 16],
 #       [24,  6,  8, 15, 17],
@@ -38,11 +38,11 @@ S=AB._R('x+y')
 #       [12, 19, 26,  3, 10]], dtype=uint8)
 
 # Get shape(size) of one matlab variable
-print(AB._S('x'))
+print(AB.S('x'))
 # (5, 5)
 
 # Get all the variable names
-ALL=AB._A()
+ALL=AB.A()
 # ALL=array(['x', 'y'], dtype=object)
 # Iterate all the matlab variables
 for i in AB:
@@ -51,7 +51,7 @@ for i in AB:
 # y
 
 # Show all the variables
-AB._Show()
+AB.show()
 #  Name      Size            Bytes  Class     Attributes
 #  x         5x5               200  double              
 #  y         5x5               200  double             
@@ -63,7 +63,7 @@ import numpy as np
 AB=AutumnBridge(connect=True)
 AB['a']=np.array([[1,2],[3,4]])
 AB['b']=np.ones((2,2))
-AB._E('c=a.*b;')
+AB.E('c=a.*b;')
 c=AB['c']
 print(c)
 # array([[1, 2],
@@ -79,7 +79,7 @@ from time import time
 AB = AutumnBridge(connect=True)
 t=time()
 AB['A']=np.random.rand(1000,1000)
-L,U,P=AB._R('lu(A)',nargout=3)
+L,U,P=AB.R('lu(A)',nargout=3)
 print(time()-t)
 # 0.6980011463165283
 ```
@@ -102,13 +102,15 @@ print(a,b)
 
 ## Sample 6: Wrap one Matlab function many times
 ```python
-from AutumnBridge import AutumnBridge
+from AutumnBridge import AutumnBridge,RandomBridge
 from math import sin,cos,tan
 AB = AutumnBridge(connect=True)
+RB = RandomBridge()
+AB.BuildBridge('Hello',RB,3,2)
 for i in range(50):
     # Set a certain bridge name, and let delete=False as to avoid delete bridge files.
-    a,b=AB('Hello',sin(i),cos(i),tan(i),nargout=2,bridge='Hello',delete=True)
-AB._DelBridge('Hello') # Manually Delete Bridge Files
+    a,b=AB('Hello',sin(i),cos(i),tan(i),nargout=2,bridge=RB,NewBridge=False)
+AB.DelBridge('Hello') # Manually Delete Bridge Files
 ```
 ## Sample 7: Original Matlab API
 AB.XXX is equal to the original eng.XXX
@@ -116,6 +118,6 @@ In this way, data are transfered in original form. It may be faster at small dat
 ```python
 from AutumnBridge import AutumnBridge
 AB = AutumnBridge(connect=True)
-X=AB.eval('[2,3,4]',nargout=1)
+X=AB.eng.eval('[2,3,4]',nargout=1)
 # matlab.double([[2.0,3.0,4.0]])
 ```
