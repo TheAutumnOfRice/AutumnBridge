@@ -123,5 +123,5 @@ X=AB.eng.eval('[2,3,4]',nargout=1)
 ```
 
 ## Note:
-* Currently, AutumnBridge can only transfer `char` or `double` type in Matlab (can be in the form of struct, cell or matrix). Other types like `sym`, `string`, `figure`, and matlab `class` objects are not supported.
+* Currently, AutumnBridge can only transfer `char` ,`double` or `complex` type in Matlab (can be in the form of struct, cell or matrix). Other types like `sym`, `string`, `figure`, and matlab `class` objects are not supported.
 * The wrapper method is recommended because it's still takes time to call Matlab instructions in python. Both python and matlab are so powerful that can handle most of the tasks. Merge python and matlab programs only when necessary. 
