@@ -1,4 +1,4 @@
-# AutumnBridge
+# AutumnBridge 1.0.1
 An easy, convenient and fast tool to transfer data (especially numpy type) between python and matlab.
 Based on scipy.io. All the transmission based on hard disk IO and it is not as fast as memory transmission, but much faster than the original matlab.double(ndarray.tolist())
 User should install matlab and its python engine first.
@@ -56,7 +56,7 @@ AB.show()
 #  x         5x5               200  double              
 #  y         5x5               200  double             
 ```
-## Sample 3: Workspace tricks
+## Sample 3: Workspace Tricks
 ```python
 from AutumnBridge import AutumnBridge
 import numpy as np
@@ -83,7 +83,7 @@ L,U,P=AB.R('lu(A)',nargout=3)
 print(time()-t)
 # 0.6980011463165283
 ```
-## Sample 5: Use Matlab wrapper
+## Sample 5: Use Matlab Wrapper
 If you have written a Matlab function, and now you'd like to use it in python, the Matlab wrapper will help you.
 Your m file (example) `Hello.m`:
 ```matlab
@@ -100,7 +100,7 @@ print(a,b)
 # 3 5
 ```
 
-## Sample 6: Wrap one Matlab function many times
+## Sample 6: Wrap One Matlab Function Many Times
 ```python
 from AutumnBridge import AutumnBridge,RandomBridge
 from math import sin,cos,tan
@@ -122,6 +122,6 @@ X=AB.eng.eval('[2,3,4]',nargout=1)
 # matlab.double([[2.0,3.0,4.0]])
 ```
 
-##Note:
-* Currently, AutumnBridge can only transfer `char` or `double` type in Matlab (can be in the form of struct, cell or matrix). Other types like `sym`, `string`, `figure`, and matlab `class` objects are not supported.
+## Note:
+* Currently, AutumnBridge can only transfer `char` ,`double` or `complex` type in Matlab (can be in the form of struct, cell or matrix). Other types like `sym`, `string`, `figure`, and matlab `class` objects are not supported.
 * The wrapper method is recommended because it's still takes time to call Matlab instructions in python. Both python and matlab are so powerful that can handle most of the tasks. Merge python and matlab programs only when necessary. 
