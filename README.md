@@ -56,7 +56,7 @@ AB.show()
 #  x         5x5               200  double              
 #  y         5x5               200  double             
 ```
-## Sample 3: Workspace tricks
+## Sample 3: Workspace Tricks
 ```python
 from AutumnBridge import AutumnBridge
 import numpy as np
@@ -83,7 +83,7 @@ L,U,P=AB.R('lu(A)',nargout=3)
 print(time()-t)
 # 0.6980011463165283
 ```
-## Sample 5: Use Matlab wrapper
+## Sample 5: Use Matlab Wrapper
 If you have written a Matlab function, and now you'd like to use it in python, the Matlab wrapper will help you.
 Your m file (example) `Hello.m`:
 ```matlab
@@ -100,7 +100,7 @@ print(a,b)
 # 3 5
 ```
 
-## Sample 6: Wrap one Matlab function many times
+## Sample 6: Wrap One Matlab Function Many Times
 ```python
 from AutumnBridge import AutumnBridge,RandomBridge
 from math import sin,cos,tan
